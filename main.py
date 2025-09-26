@@ -1,6 +1,7 @@
 # main.py
 
 import logging
+import os
 import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, BotCommand
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
@@ -8,11 +9,16 @@ from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandle
 from black_white import start_black_white, stop_black_white, rules_black_white, button_handler_black_white
 from double_pig import start_double_pig, stop_double_pig, rules_double_pig, button_handler_double_pig
 
-# 🔑 Вставь свой токен
-TOKEN = "7528268046:AAHk9nL55UUflfZg0RXHvKM149JdX76vGwQ"
+# 🔑 Безопасное получение токена
+TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', "7528268046:AAHk9nL55UUflfZg0RXHvKM149JdX76vGwQ")
 
+# Настройка логирования для хостинга
 logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO,
+    handlers=[
+        logging.StreamHandler()  # Важно для хостинга!
+    ]
 )
 logger = logging.getLogger(__name__)
 
@@ -40,7 +46,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=InlineKeyboardMarkup(keyboard),
         parse_mode="Markdown"
     )
-    # Не удаляем автоматически — оно удалится при выборе
 
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -58,7 +63,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             await context.bot.delete_message(chat_id=chat_id, message_id=query.message.message_id)
         except Exception:
-            pass  # Игнорируем, если уже удалено
+            pass
 
         if game_type == "black_white":
             active_games[chat_id] = "black_white"
@@ -84,10 +89,9 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await button_handler_double_pig(update, context)
                 return
 
-        await query.answer("Эта кнопка не относится к текущей игру.", show_alert=True)
+        await query.answer("Эта кнопка не относится к текущей игре.", show_alert=True)
         return
 
-    # Если игра не выбрана
     await query.answer("Сначала выберите игру командой /start", show_alert=True)
 
 
@@ -122,31 +126,38 @@ async def rules(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def post_init(application):
     """Установка команд после инициализации"""
-    await application.bot.set_my_commands([
-        BotCommand("start", "Выбрать игру"),
-        BotCommand("stop", "Остановить текущую игру"),
-        BotCommand("rules", "Показать правила текущей игры"),
-    ])
-    logger.info("✅ Команды бота установлены")
+    try:
+        await application.bot.set_my_commands([
+            BotCommand("start", "Выбрать игру"),
+            BotCommand("stop", "Остановить текущую игру"),
+            BotCommand("rules", "Показать правила текущей игры"),
+        ])
+        logger.info("✅ Команды бота установлены")
+    except Exception as e:
+        logger.error(f"❌ Ошибка установки команд: {e}")
 
 
 def main():
     """Запуск бота"""
-    # Создаем приложение с post_init
-    app = ApplicationBuilder().token(TOKEN).post_init(post_init).build()
+    try:
+        # Создаем приложение с post_init
+        app = ApplicationBuilder().token(TOKEN).post_init(post_init).build()
 
-    # Регистрируем обработчики
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("stop", stop))
-    app.add_handler(CommandHandler("rules", rules))
-    app.add_handler(CallbackQueryHandler(button_handler))
+        # Регистрируем обработчики
+        app.add_handler(CommandHandler("start", start))
+        app.add_handler(CommandHandler("stop", stop))
+        app.add_handler(CommandHandler("rules", rules))
+        app.add_handler(CallbackQueryHandler(button_handler))
 
-    # Запуск бота
-    logger.info("🎲 Запускаю универсального бота...")
-    app.run_polling(
-        drop_pending_updates=True,  # Игнорировать сообщения, отправленные когда бот был оффлайн
-        allowed_updates=Update.ALL_TYPES  # Обрабатывать все типы обновлений
-    )
+        # Запуск бота
+        logger.info("🎲 Запускаю универсального бота...")
+        app.run_polling(
+            drop_pending_updates=True,
+            allowed_updates=Update.ALL_TYPES
+        )
+    except Exception as e:
+        logger.error(f"❌ Критическая ошибка: {e}")
+        raise
 
 
 if __name__ == "__main__":

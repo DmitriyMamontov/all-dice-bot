@@ -127,8 +127,8 @@ async def _update_board(chat_id, context):
         line = f"{marker} {p['username']}: {p['total']} (текущий ход +{tp})"
         lines.append(line)
 
-    # Сокращаем историю до последних 8 записей
-    recent = game.get("history", [])[-8:]
+    # Сокращаем историю до последних 6 записей
+    recent = game.get("history", [])[-6:]
     hist_lines = []
     if recent:
         hist_lines.append("*Последние броски / действия:*")
@@ -173,7 +173,7 @@ async def _show_final_results(chat_id, context, winner_id=None):
     players.sort(key=lambda p: p[1]["total"], reverse=True)
 
     # Сокращаем историю до последних 8 записей в финале
-    recent = game.get("history", [])[-8:]
+    recent = game.get("history", [])[-6:]
     history_lines = []
     if recent:
         history_lines.append("*Последние броски / действия:*")

@@ -41,26 +41,6 @@ except ImportError as e:
 active_games = {}
 
 
-# 🔄 Функция самопинга чтобы Render не останавливал сервис
-def start_keep_alive():
-    """Пингует сервис каждые 5 минут чтобы не уснул"""
-
-    def ping_loop():
-        while True:
-            try:
-                # Этот URL нужно заменить на ваш реальный URL Render
-                # Пока заглушка - раскомментируйте когда будет URL
-                # urllib.request.urlopen("https://your-bot-name.onrender.com", timeout=10)
-                logger.info("🏓 Самопинг выполнен")
-            except Exception as e:
-                logger.warning(f"🏓 Самопинг не удался: {e}")
-            time.sleep(300)  # 5 минут
-
-    thread = threading.Thread(target=ping_loop, daemon=True)
-    thread.start()
-    logger.info("🔛 Самопинг активирован")
-
-
 # 🗑️ Автоудаление сообщений
 async def _auto_delete_message(context: ContextTypes.DEFAULT_TYPE, chat_id: int, message_id: int, delay: int = 8):
     await asyncio.sleep(delay)
@@ -177,12 +157,9 @@ async def post_init(application):
 
 
 # 🚀 Главная функция
-def main():
+async def main():
     try:
         logger.info("🎲 Запускаю универсального бота...")
-
-        # Запускаем самопинг (пока заглушка)
-        # start_keep_alive()  # 🚨 РАСКОММЕНТИРУЙТЕ КОГДА БУДЕТ URL RENDER
 
         # Создаем приложение
         app = ApplicationBuilder().token(TOKEN).post_init(post_init).build()
@@ -193,19 +170,37 @@ def main():
         app.add_handler(CommandHandler("rules", rules))
         app.add_handler(CallbackQueryHandler(button_handler))
 
-        # Запускаем бота
-        logger.info("✅ Бот успешно запущен и готов к работе!")
-        app.run_polling(
-            drop_pending_updates=True,
-            allowed_updates=Update.ALL_TYPES
-        )
+        # 🔥 ИСПРАВЛЕНИЕ: Используем Webhook вместо Polling для Railway
+        PORT = int(os.environ.get("PORT", 8000))
+        RAILWAY_STATIC_URL = os.environ.get("RAILWAY_STATIC_URL", "")
+
+        if RAILWAY_STATIC_URL:
+            # Режим Railway (Webhook)
+            webhook_url = f"{RAILWAY_STATIC_URL}/{TOKEN}"
+            await app.bot.set_webhook(url=webhook_url)
+
+            logger.info(f"✅ Webhook установлен: {webhook_url}")
+            await app.run_webhook(
+                listen="0.0.0.0",
+                port=PORT,
+                url_path=TOKEN,
+                webhook_url=webhook_url,
+                drop_pending_updates=True
+            )
+        else:
+            # Режим разработки (Polling)
+            logger.info("✅ Запуск в режиме Polling (разработка)")
+            await app.run_polling(
+                drop_pending_updates=True,
+                allowed_updates=Update.ALL_TYPES
+            )
 
     except Exception as e:
         logger.error(f"💥 Критическая ошибка: {e}")
         logger.info("🔄 Попытка перезапуска через 10 секунд...")
-        time.sleep(10)
-        main()  # Рекурсивный перезапуск
+        await asyncio.sleep(10)
+        await main()  # Рекурсивный перезапуск
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

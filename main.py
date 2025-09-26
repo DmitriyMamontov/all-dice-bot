@@ -167,14 +167,14 @@ async def main():
         app.add_handler(CommandHandler("rules", rules))
         app.add_handler(CallbackQueryHandler(button_handler))
 
-        # 🔥 ИСПРАВЛЕНИЕ: Всегда используем Webhook на Railway
+        # 🔥 ВСЕГДА используем Webhook на Railway
         PORT = int(os.environ.get("PORT", 8000))
 
-        # Получаем URL Railway из переменных окружения
+        # Получаем URL из переменных окружения Railway
         RAILWAY_STATIC_URL = os.environ.get("RAILWAY_STATIC_URL", "")
         RAILWAY_PUBLIC_DOMAIN = os.environ.get("RAILWAY_PUBLIC_DOMAIN", "")
 
-        # Пробуем разные переменные окружения Railway
+        # Используем любой доступный URL Railway
         railway_url = RAILWAY_STATIC_URL or RAILWAY_PUBLIC_DOMAIN
 
         if railway_url:
@@ -191,19 +191,16 @@ async def main():
                 drop_pending_updates=True
             )
         else:
-            # Если не нашли URL Railway, используем polling но с обработкой ошибок
-            logger.info("🚨 Не найден Railway URL, запускаем polling с ограничениями")
-
-            # Останавливаем бота если нет webhook URL
-            logger.error("❌ Не могу запустить бота: отсутствует Railway URL")
+            # Если URL не найден, просто выходим
+            logger.error("❌ Не найден Railway URL. Бот не может запуститься.")
             return
 
     except Exception as e:
         logger.error(f"💥 Критическая ошибка: {e}")
-        # Выходим с ошибкой
-        raise
+        # Просто выходим, не перезапускаем
+        return
 
 
 if __name__ == "__main__":
-    # Простой запуск
+    # Простой запуск без рекурсии
     asyncio.run(main())

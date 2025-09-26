@@ -3,9 +3,6 @@
 import logging
 import os
 import asyncio
-import threading
-import time
-import urllib.request
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, BotCommand
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
 
@@ -197,9 +194,8 @@ async def main():
 
     except Exception as e:
         logger.error(f"💥 Критическая ошибка: {e}")
-        logger.info("🔄 Попытка перезапуска через 10 секунд...")
-        await asyncio.sleep(10)
-        await main()  # Рекурсивный перезапуск
+        # НЕ перезапускаем автоматически - выходим с ошибкой
+        raise e
 
 
 if __name__ == "__main__":

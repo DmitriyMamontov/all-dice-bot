@@ -6,5 +6,4 @@ numReplicas = 1
 startCommand = "python main.py"
 
 [healthcheck]
-path = "/"
-port = 8000
+enabled = false

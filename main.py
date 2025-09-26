@@ -26,7 +26,6 @@ except ImportError as e:
     logger.error(f"❌ Ошибка импорта игр: {e}")
 
 
-    # Создаем заглушки чтобы бот не падал
     async def game_stub(*args, **kwargs):
         await args[0].message.reply_text("⚠️ Игра временно недоступна")
 
@@ -73,7 +72,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id = query.message.chat.id
         data = query.data
 
-        # Выбор игры
         if data.startswith("select_game:"):
             game_type = data.split(":", 1)[1]
             try:
@@ -89,7 +87,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await start_double_pig(update, context)
             return
 
-        # Передача управления в активную игру
         if chat_id in active_games:
             current_game = active_games[chat_id]
             if current_game == "black_white" and data.startswith("bw_"):
@@ -167,40 +164,35 @@ async def main():
         app.add_handler(CommandHandler("rules", rules))
         app.add_handler(CallbackQueryHandler(button_handler))
 
-        # 🔥 ВСЕГДА используем Webhook на Railway
+        # 🔥 ПРИНУДИТЕЛЬНО используем Webhook для Railway
         PORT = int(os.environ.get("PORT", 8000))
 
-        # Получаем URL из переменных окружения Railway
+        # Получаем URL проекта из переменных Railway
         RAILWAY_STATIC_URL = os.environ.get("RAILWAY_STATIC_URL", "")
         RAILWAY_PUBLIC_DOMAIN = os.environ.get("RAILWAY_PUBLIC_DOMAIN", "")
 
-        # Используем любой доступный URL Railway
-        railway_url = RAILWAY_STATIC_URL or RAILWAY_PUBLIC_DOMAIN
+        # Если не нашли переменные, используем дефолтный URL Railway
+        railway_url = RAILWAY_STATIC_URL or RAILWAY_PUBLIC_DOMAIN or "all-dice-bot.up.railway.app"
 
-        if railway_url:
-            # Режим Railway (Webhook)
-            webhook_url = f"https://{railway_url}/{TOKEN}"
-            await app.bot.set_webhook(url=webhook_url)
+        webhook_url = f"https://{railway_url}/{TOKEN}"
 
-            logger.info(f"✅ Webhook установлен: {webhook_url}")
-            await app.run_webhook(
-                listen="0.0.0.0",
-                port=PORT,
-                url_path=TOKEN,
-                webhook_url=webhook_url,
-                drop_pending_updates=True
-            )
-        else:
-            # Если URL не найден, просто выходим
-            logger.error("❌ Не найден Railway URL. Бот не может запуститься.")
-            return
+        logger.info(f"🚀 Устанавливаю webhook: {webhook_url}")
+        await app.bot.set_webhook(url=webhook_url)
+
+        logger.info("✅ Webhook установлен, запускаю сервер...")
+        await app.run_webhook(
+            listen="0.0.0.0",
+            port=PORT,
+            url_path=TOKEN,
+            webhook_url=webhook_url,
+            drop_pending_updates=True
+        )
 
     except Exception as e:
         logger.error(f"💥 Критическая ошибка: {e}")
-        # Просто выходим, не перезапускаем
-        return
+        # Выходим с кодом 0 чтобы Railway не перезапускал
+        os._exit(0)
 
 
 if __name__ == "__main__":
-    # Простой запуск без рекурсии
     asyncio.run(main())

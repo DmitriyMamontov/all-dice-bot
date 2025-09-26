@@ -127,10 +127,11 @@ async def _update_board(chat_id, context):
         line = f"{marker} {p['username']}: {p['total']} (текущий ход +{tp})"
         lines.append(line)
 
-    recent = game.get("history", [])[-12:]
+    # Сокращаем историю до последних 8 записей
+    recent = game.get("history", [])[-8:]
     hist_lines = []
     if recent:
-        hist_lines.append("\n*Последние броски / действия:*")
+        hist_lines.append("*Последние броски / действия:*")
         for entry in recent:
             if entry.get("dice"):
                 emojis = entry.get("dice_emojis", "")
@@ -141,12 +142,13 @@ async def _update_board(chat_id, context):
             else:
                 hist_lines.append(f"👤 {entry.get('player')}: {entry.get('note','')}")
 
+    # Убираем лишний отступ - объединяем всё в один блок
     text = (
         f"🎲 *Двойная свинка* — цель: *{game['target_score']}* очков\n"
         f"Раунд {game.get('round_index',1)}\n\n"
         f"*Ход: {current_player_name}*\n\n"
         "*Счёт игроков:*\n" + "\n".join(lines) +
-        ("\n\n" + "\n".join(hist_lines) if hist_lines else "")
+        ("\n" + "\n".join(hist_lines) if hist_lines else "")  # Убрали лишний \n\n
     )
 
     current_player = game["players"][current_player_id]
@@ -170,7 +172,8 @@ async def _show_final_results(chat_id, context, winner_id=None):
     players = list(game["players"].items())
     players.sort(key=lambda p: p[1]["total"], reverse=True)
 
-    recent = game.get("history", [])[-12:]
+    # Сокращаем историю до последних 8 записей в финале
+    recent = game.get("history", [])[-8:]
     history_lines = []
     if recent:
         history_lines.append("*Последние броски / действия:*")
@@ -227,7 +230,6 @@ async def _advance_turn(chat_id, context):
     await _update_board(chat_id, context)
 
 
-# === ИСПРАВЛЕНО: используем send_message вместо reply_text ===
 async def start_double_pig(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     if chat_id in _games and _games[chat_id]["phase"] != "finished":

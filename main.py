@@ -3,7 +3,6 @@
 import logging
 import os
 import asyncio
-import sys
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, BotCommand
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
 
@@ -116,24 +115,32 @@ async def main():
     app.add_handler(CommandHandler("rules", rules))
     app.add_handler(CallbackQueryHandler(button_handler))
 
-    logger.info("🚀 Бот запущен в режиме long polling...")
-    await app.run_polling(drop_pending_updates=True)
+    # 🔥 ИСПРАВЛЕНИЕ: Используем Webhook для Railway
+    PORT = int(os.environ.get("PORT", 8000))
+
+    # Получаем URL Railway
+    RAILWAY_STATIC_URL = os.environ.get("RAILWAY_STATIC_URL", "")
+    RAILWAY_PUBLIC_DOMAIN = os.environ.get("RAILWAY_PUBLIC_DOMAIN", "")
+
+    # Используем любой доступный URL
+    railway_url = RAILWAY_STATIC_URL or RAILWAY_PUBLIC_DOMAIN or "all-dice-bot.up.railway.app"
+
+    webhook_url = f"https://{railway_url}/{TOKEN}"
+
+    logger.info(f"🚀 Устанавливаю webhook: {webhook_url}")
+    await app.bot.set_webhook(url=webhook_url)
+
+    logger.info("✅ Webhook установлен, запускаю сервер...")
+    await app.run_webhook(
+        listen="0.0.0.0",
+        port=PORT,
+        url_path=TOKEN,
+        webhook_url=webhook_url,
+        drop_pending_updates=True
+    )
 
 
-# 🔧 Финальная настройка loop'а для Railway/Nix
+# 🔧 Простой запуск для Railway
 if __name__ == "__main__":
-    if sys.platform == "win32":
-        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
-
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-
-    try:
-        loop.run_until_complete(main())
-    except KeyboardInterrupt:
-        logger.info("🛑 Бот остановлен вручную")
-    finally:
-        try:
-            loop.run_until_complete(loop.shutdown_asyncgens())
-        finally:
-            loop.close()
+    # Убираем всю сложную логику с event loop - просто запускаем
+    asyncio.run(main())

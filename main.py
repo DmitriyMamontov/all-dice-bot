@@ -13,12 +13,15 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+if not TOKEN:
+    raise ValueError("❌ Переменная окружения TELEGRAM_BOT_TOKEN не установлена!")
 
 # 🎮 Импорты игр
 try:
     from black_white import start_black_white, stop_black_white, rules_black_white, button_handler_black_white
     from double_pig import start_double_pig, stop_double_pig, rules_double_pig, button_handler_double_pig
-except ImportError:
+except ImportError as e:
+    logger.error(f"❌ Ошибка импорта игр: {e}")
     async def game_stub(update, context):
         await update.message.reply_text("⚠️ Игра временно недоступна")
 
@@ -26,6 +29,7 @@ except ImportError:
     start_double_pig = stop_double_pig = rules_double_pig = button_handler_double_pig = game_stub
 
 active_games = {}
+
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
@@ -38,6 +42,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="Markdown"
     )
 
+
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -46,7 +51,10 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if data.startswith("select_game:"):
         game_type = data.split(":", 1)[1]
-        await context.bot.delete_message(chat_id=chat_id, message_id=query.message.message_id)
+        try:
+            await context.bot.delete_message(chat_id=chat_id, message_id=query.message.message_id)
+        except Exception:
+            pass
 
         if game_type == "black_white":
             active_games[chat_id] = "black_white"
@@ -58,10 +66,11 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if chat_id in active_games:
         game_type = active_games[chat_id]
-        if game_type == "black_white" and data.startswith("bw_"):
+        if game_type == "black_white" and (data.startswith("bw_") or data == "delete_rules"):
             await button_handler_black_white(update, context)
-        elif game_type == "double_pig" and data.startswith("dp_"):
+        elif game_type == "double_pig" and (data.startswith("dp_") or data == "delete_rules"):
             await button_handler_double_pig(update, context)
+
 
 async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
@@ -74,6 +83,7 @@ async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("Нет активной игры. Начните с /start")
 
+
 async def rules(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     if chat_id in active_games:
@@ -85,12 +95,14 @@ async def rules(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("Нет активной игры. Начните с /start")
 
+
 async def post_init(app):
     await app.bot.set_my_commands([
         BotCommand("start", "Выбрать игру"),
         BotCommand("stop", "Остановить игру"),
         BotCommand("rules", "Правила текущей игры"),
     ])
+
 
 async def main():
     app = ApplicationBuilder().token(TOKEN).post_init(post_init).build()
@@ -100,25 +112,10 @@ async def main():
     app.add_handler(CommandHandler("rules", rules))
     app.add_handler(CallbackQueryHandler(button_handler))
 
-    PORT = int(os.environ.get("PORT", 8000))
-    railway_url = os.environ.get("RAILWAY_STATIC_URL") or os.environ.get("RAILWAY_PUBLIC_DOMAIN")
+    logger.info("🚀 Бот запущен в режиме long polling...")
+    await app.run_polling(drop_pending_updates=True)
 
-    if not railway_url:
-        logger.error("❌ Railway URL не найден! Установите переменные окружения.")
-        return
-
-    webhook_url = f"https://{railway_url}/{TOKEN}"
-    logger.info(f"🚀 Устанавливаю webhook: {webhook_url}")
-
-    await app.bot.set_webhook(url=webhook_url)
-
-    await app.run_webhook(
-        listen="0.0.0.0",
-        port=PORT,
-        url_path=TOKEN,
-        webhook_url=webhook_url,
-        drop_pending_updates=True
-    )
 
 if __name__ == "__main__":
+    # Railway поддерживает asyncio.run()
     asyncio.run(main())

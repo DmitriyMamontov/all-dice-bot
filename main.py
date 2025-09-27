@@ -107,7 +107,8 @@ async def post_init(app):
     ])
 
 
-async def main():
+def main():
+    # 🔥 ИСПРАВЛЕНИЕ: Используем синхронный подход
     app = ApplicationBuilder().token(TOKEN).post_init(post_init).build()
 
     app.add_handler(CommandHandler("start", start))
@@ -115,23 +116,21 @@ async def main():
     app.add_handler(CommandHandler("rules", rules))
     app.add_handler(CallbackQueryHandler(button_handler))
 
-    # 🔥 ИСПРАВЛЕНИЕ: Используем Webhook для Railway
+    # 🔥 ИСПРАВЛЕНИЕ: Простой запуск без asyncio.run()
     PORT = int(os.environ.get("PORT", 8000))
 
     # Получаем URL Railway
     RAILWAY_STATIC_URL = os.environ.get("RAILWAY_STATIC_URL", "")
     RAILWAY_PUBLIC_DOMAIN = os.environ.get("RAILWAY_PUBLIC_DOMAIN", "")
 
-    # Используем любой доступный URL
     railway_url = RAILWAY_STATIC_URL or RAILWAY_PUBLIC_DOMAIN or "all-dice-bot.up.railway.app"
 
     webhook_url = f"https://{railway_url}/{TOKEN}"
 
     logger.info(f"🚀 Устанавливаю webhook: {webhook_url}")
-    await app.bot.set_webhook(url=webhook_url)
 
-    logger.info("✅ Webhook установлен, запускаю сервер...")
-    await app.run_webhook(
+    # 🔥 ИСПРАВЛЕНИЕ: Используем run_webhook вместо await app.run_webhook
+    app.run_webhook(
         listen="0.0.0.0",
         port=PORT,
         url_path=TOKEN,
@@ -140,7 +139,6 @@ async def main():
     )
 
 
-# 🔧 Простой запуск для Railway
+# 🔧 Запуск без asyncio.run()
 if __name__ == "__main__":
-    # Убираем всю сложную логику с event loop - просто запускаем
-    asyncio.run(main())
+    main()

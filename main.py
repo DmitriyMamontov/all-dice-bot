@@ -19,6 +19,8 @@ if not TOKEN:
 try:
     from black_white import start_black_white, stop_black_white, rules_black_white, button_handler_black_white
     from double_pig import start_double_pig, stop_double_pig, rules_double_pig, button_handler_double_pig
+
+    logger.info("✅ Игры успешно загружены")
 except ImportError as e:
     logger.error(f"❌ Ошибка импорта игр: {e}")
 
@@ -34,6 +36,7 @@ active_games = {}
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    logger.info(f"📨 Получена команда /start от {update.effective_user.id}")
     keyboard = [
         [InlineKeyboardButton("Чёрные-Белые", callback_data="select_game:black_white")],
         [InlineKeyboardButton("Двойная свинка", callback_data="select_game:double_pig")],
@@ -50,6 +53,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     chat_id = query.message.chat.id
     data = query.data
+    logger.info(f"🔄 Обработка кнопки: {data} от {update.effective_user.id}")
 
     if data.startswith("select_game:"):
         game_type = data.split(":", 1)[1]
@@ -75,6 +79,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    logger.info(f"🛑 Получена команда /stop от {update.effective_user.id}")
     chat_id = update.effective_chat.id
     if chat_id in active_games:
         game_type = active_games.pop(chat_id)
@@ -87,6 +92,7 @@ async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def rules(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    logger.info(f"📖 Получена команда /rules от {update.effective_user.id}")
     chat_id = update.effective_chat.id
     if chat_id in active_games:
         game_type = active_games[chat_id]
@@ -106,17 +112,24 @@ def main():
     app.add_handler(CommandHandler("rules", rules))
     app.add_handler(CallbackQueryHandler(button_handler))
 
-    # Простой запуск webhook
+    # Получаем правильный URL Railway
     PORT = int(os.environ.get("PORT", 8000))
-    webhook_url = f"https://all-dice-bot.up.railway.app/{TOKEN}"
+    RAILWAY_STATIC_URL = os.environ.get("RAILWAY_STATIC_URL", "all-dice-bot.up.railway.app")
 
-    logger.info("🚀 Запускаю бота...")
-    app.run_webhook(
-        listen="0.0.0.0",
-        port=PORT,
-        webhook_url=webhook_url,
-        drop_pending_updates=True
-    )
+    webhook_url = f"https://{RAILWAY_STATIC_URL}/{TOKEN}"
+
+    logger.info(f"🚀 Запускаю бота на порту {PORT}")
+    logger.info(f"🌐 Webhook URL: {webhook_url}")
+
+    try:
+        app.run_webhook(
+            listen="0.0.0.0",
+            port=PORT,
+            webhook_url=webhook_url,
+            drop_pending_updates=True
+        )
+    except Exception as e:
+        logger.error(f"💥 Ошибка запуска: {e}")
 
 
 if __name__ == "__main__":

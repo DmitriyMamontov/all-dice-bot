@@ -2,7 +2,6 @@
 
 import logging
 import os
-import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, BotCommand
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
 
@@ -14,9 +13,9 @@ logger = logging.getLogger(__name__)
 
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 if not TOKEN:
-    raise ValueError("❌ Переменная окружения TELEGRAM_BOT_TOKEN не установлена!")
+    raise ValueError("❌ TELEGRAM_BOT_TOKEN не установлена!")
 
-# 🎮 Импорты игр
+# Импорты игр
 try:
     from black_white import start_black_white, stop_black_white, rules_black_white, button_handler_black_white
     from double_pig import start_double_pig, stop_double_pig, rules_double_pig, button_handler_double_pig
@@ -99,46 +98,26 @@ async def rules(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Нет активной игры. Начните с /start")
 
 
-async def post_init(app):
-    await app.bot.set_my_commands([
-        BotCommand("start", "Выбрать игру"),
-        BotCommand("stop", "Остановить игру"),
-        BotCommand("rules", "Правила текущей игры"),
-    ])
-
-
 def main():
-    # 🔥 ИСПРАВЛЕНИЕ: Используем синхронный подход
-    app = ApplicationBuilder().token(TOKEN).post_init(post_init).build()
+    app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("stop", stop))
     app.add_handler(CommandHandler("rules", rules))
     app.add_handler(CallbackQueryHandler(button_handler))
 
-    # 🔥 ИСПРАВЛЕНИЕ: Простой запуск без asyncio.run()
+    # Простой запуск webhook
     PORT = int(os.environ.get("PORT", 8000))
+    webhook_url = f"https://all-dice-bot.up.railway.app/{TOKEN}"
 
-    # Получаем URL Railway
-    RAILWAY_STATIC_URL = os.environ.get("RAILWAY_STATIC_URL", "")
-    RAILWAY_PUBLIC_DOMAIN = os.environ.get("RAILWAY_PUBLIC_DOMAIN", "")
-
-    railway_url = RAILWAY_STATIC_URL or RAILWAY_PUBLIC_DOMAIN or "all-dice-bot.up.railway.app"
-
-    webhook_url = f"https://{railway_url}/{TOKEN}"
-
-    logger.info(f"🚀 Устанавливаю webhook: {webhook_url}")
-
-    # 🔥 ИСПРАВЛЕНИЕ: Используем run_webhook вместо await app.run_webhook
+    logger.info("🚀 Запускаю бота...")
     app.run_webhook(
         listen="0.0.0.0",
         port=PORT,
-        url_path=TOKEN,
         webhook_url=webhook_url,
         drop_pending_updates=True
     )
 
 
-# 🔧 Запуск без asyncio.run()
 if __name__ == "__main__":
     main()

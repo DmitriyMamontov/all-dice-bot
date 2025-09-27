@@ -3,6 +3,7 @@
 import logging
 import os
 import asyncio
+import sys
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, BotCommand
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
 
@@ -22,8 +23,11 @@ try:
     from double_pig import start_double_pig, stop_double_pig, rules_double_pig, button_handler_double_pig
 except ImportError as e:
     logger.error(f"❌ Ошибка импорта игр: {e}")
+
+
     async def game_stub(update, context):
         await update.message.reply_text("⚠️ Игра временно недоступна")
+
 
     start_black_white = stop_black_white = rules_black_white = button_handler_black_white = game_stub
     start_double_pig = stop_double_pig = rules_double_pig = button_handler_double_pig = game_stub
@@ -116,6 +120,20 @@ async def main():
     await app.run_polling(drop_pending_updates=True)
 
 
+# 🔧 Финальная настройка loop'а для Railway/Nix
 if __name__ == "__main__":
-    # Railway поддерживает asyncio.run()
-    asyncio.run(main())
+    if sys.platform == "win32":
+        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+    try:
+        loop.run_until_complete(main())
+    except KeyboardInterrupt:
+        logger.info("🛑 Бот остановлен вручную")
+    finally:
+        try:
+            loop.run_until_complete(loop.shutdown_asyncgens())
+        finally:
+            loop.close()
